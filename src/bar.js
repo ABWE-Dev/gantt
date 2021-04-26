@@ -24,16 +24,16 @@ export default class Bar {
         this.invalid = this.task.invalid;
         this.height = this.gantt.options.bar_height;
         this.x = this.compute_x();
-        this.y = this.compute_y();
         this.corner_radius = this.gantt.options.bar_corner_radius;
         this.duration =
             date_utils.diff(this.task._end, this.task._start, 'hour') /
             this.gantt.options.step;
         this.width = this.gantt.options.column_width * this.duration;
+        this.y = this.compute_y();
         this.progress_width =
             this.gantt.options.column_width *
-                this.duration *
-                (this.task.progress / 100) || 0;
+            this.duration *
+            (this.task.progress / 100) || 0;
         this.group = createSVG('g', {
             class: 'bar-wrapper ' + (this.task.custom_class || ''),
             'data-id': this.task.id
@@ -42,70 +42,77 @@ export default class Bar {
             class: 'bar-group',
             append_to: this.group
         });
-        this.handle_group = createSVG('g', {
-            class: 'handle-group',
-            append_to: this.group
-        });
     }
 
     prepare_helpers() {
-        SVGElement.prototype.getX = function() {
+        SVGElement.prototype.getX = function () {
+            if (this.nodeName == 'circle') return this.getAttribute('cx')-this.getAttribute('r');
             return +this.getAttribute('x');
         };
-        SVGElement.prototype.getY = function() {
+        SVGElement.prototype.getY = function () {
+            if (this.nodeName == 'circle') return this.getAttribute('cy')-this.getAttribute('r');
             return +this.getAttribute('y');
         };
-        SVGElement.prototype.getWidth = function() {
+        SVGElement.prototype.getWidth = function () {
+            if (this.nodeName == 'circle') return this.getAttribute('r')*2;
             return +this.getAttribute('width');
         };
-        SVGElement.prototype.getHeight = function() {
+        SVGElement.prototype.getHeight = function () {
+            if (this.nodeName == 'circle') return this.getAttribute('r')*2;
             return +this.getAttribute('height');
         };
-        SVGElement.prototype.getEndX = function() {
+        SVGElement.prototype.getEndX = function () {
+            if (this.nodeName == 'circle') return this.getAttribute('cx')+this.getAttribute('r')*2;
             return this.getX() + this.getWidth();
         };
     }
 
     draw() {
         this.draw_bar();
-        this.draw_progress_bar();
         this.draw_label();
-        this.draw_resize_handles();
     }
 
     draw_bar() {
-        this.$bar = createSVG('rect', {
-            x: this.x,
-            y: this.y,
-            width: this.width,
-            height: this.height,
-            rx: this.corner_radius,
-            ry: this.corner_radius,
-            class: 'bar',
-            append_to: this.bar_group
-        });
+        // Single point where the start date = the end date
+        if (this.task.start == this.task.end) {
+            this.$bar = createSVG('circle', {
+                cx: this.x,
+                cy: this.y + (this.gantt.options.bar_height / 2),
+                r: this.gantt.options.bar_height / 4,
+                class: 'bar',
+                style: 'fill:' + this.task.Color || '',
+                append_to: this.bar_group
+            });
+            // this.$bar = createSVG('polygon', {
+            //     x: this.x,
+            //     y: this.y + (this.gantt.options.bar_height / 2),
+            //     width: this.gantt.options.bar_height / 4,
+            //     height: this.gantt.options.bar_height / 4,
+            //     class: 'bar',
+            //     style: 'fill:' + this.task.Color || '',
+            //     append_to: this.bar_group
+            // });
+        } else {
+            // Date range
+            this.$bar = createSVG('rect', {
+                x: this.x,
+                y: this.y,
+                width: this.width,
+                height: this.height,
+                rx: this.corner_radius,
+                ry: this.corner_radius,
+                class: 'bar',
+                style: 'fill:' + this.task.Color || '',
+                append_to: this.bar_group
+            });
 
-        animateSVG(this.$bar, 'width', 0, this.width);
+            animateSVG(this.$bar, 'width', 0, this.width);
+        }
+
 
         if (this.invalid) {
             this.$bar.classList.add('bar-invalid');
         }
-    }
-
-    draw_progress_bar() {
-        if (this.invalid) return;
-        this.$bar_progress = createSVG('rect', {
-            x: this.x,
-            y: this.y,
-            width: this.progress_width,
-            height: this.height,
-            rx: this.corner_radius,
-            ry: this.corner_radius,
-            class: 'bar-progress',
-            append_to: this.bar_group
-        });
-
-        animateSVG(this.$bar_progress, 'width', 0, this.progress_width);
     }
 
     draw_label() {
@@ -116,45 +123,9 @@ export default class Bar {
             class: 'bar-label',
             append_to: this.bar_group
         });
+
         // labels get BBox in the next tick
         requestAnimationFrame(() => this.update_label_position());
-    }
-
-    draw_resize_handles() {
-        if (this.invalid) return;
-
-        const bar = this.$bar;
-        const handle_width = 8;
-
-        createSVG('rect', {
-            x: bar.getX() + bar.getWidth() - 9,
-            y: bar.getY() + 1,
-            width: handle_width,
-            height: this.height - 2,
-            rx: this.corner_radius,
-            ry: this.corner_radius,
-            class: 'handle right',
-            append_to: this.handle_group
-        });
-
-        createSVG('rect', {
-            x: bar.getX() + 1,
-            y: bar.getY() + 1,
-            width: handle_width,
-            height: this.height - 2,
-            rx: this.corner_radius,
-            ry: this.corner_radius,
-            class: 'handle left',
-            append_to: this.handle_group
-        });
-
-        if (this.task.progress && this.task.progress < 100) {
-            this.$handle_progress = createSVG('polygon', {
-                points: this.get_progress_polygon_points().join(','),
-                class: 'handle progress',
-                append_to: this.handle_group
-            });
-        }
     }
 
     get_progress_polygon_points() {
@@ -170,7 +141,7 @@ export default class Bar {
     }
 
     bind() {
-        if (this.invalid) return;
+        // if (this.invalid) return;
         this.setup_click_event();
     }
 
@@ -307,18 +278,30 @@ export default class Bar {
         const diff = date_utils.diff(task_start, gantt_start, 'hour');
         let x = diff / step * column_width;
 
-        if (this.gantt.view_is('Month')) {
-            const diff = date_utils.diff(task_start, gantt_start, 'day');
-            x = diff * column_width / 30;
-        }
+        // Not sure why this is here
+        // if (this.gantt.view_is('Month')) {
+        //     const diff = date_utils.diff(task_start, gantt_start, 'day');
+        //     x = diff * column_width / 30;
+        // }
         return x;
     }
 
     compute_y() {
+        let existingBarsForStepType = this.gantt.stepTypeBars.filter(stepTypeBars => stepTypeBars.id == this.task.data.StepTypeId
+            && stepTypeBars.bars.every(bar =>
+                bar.x + bar.width <= this.x || bar.x >= this.x + this.width
+            ));
+
+        if (existingBarsForStepType.length > 0) {
+            return existingBarsForStepType[0].bars[0].y;
+        } else {
+            this.gantt.stepTypeBars.push({ id: this.task.data.StepTypeId, bars: [this] });
+        }
+
         return (
             this.gantt.options.header_height +
             this.gantt.options.padding +
-            this.task._index * (this.height + this.gantt.options.padding)
+            (this.gantt.stepTypeBars.length - 1) * (this.height + this.gantt.options.padding)
         );
     }
 

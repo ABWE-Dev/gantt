@@ -45,7 +45,7 @@ export default class Gantt {
         } else {
             throw new TypeError(
                 'Frappé Gantt only supports usage of a string CSS selector,' +
-                    " HTML DOM element or SVG DOM element for the 'element' parameter"
+                " HTML DOM element or SVG DOM element for the 'element' parameter"
             );
         }
 
@@ -102,9 +102,9 @@ export default class Gantt {
             task._end = date_utils.parse(task.end);
 
             // make task invalid if duration too large
-            if (date_utils.diff(task._end, task._start, 'year') > 10) {
-                task.end = null;
-            }
+            // if (date_utils.diff(task._end, task._start, 'year') > 10) {
+            //     task.end = null;
+            // }
 
             // cache index
             task._index = i;
@@ -235,11 +235,11 @@ export default class Gantt {
             this.gantt_start = date_utils.add(this.gantt_start, -7, 'day');
             this.gantt_end = date_utils.add(this.gantt_end, 7, 'day');
         } else if (this.view_is(VIEW_MODE.MONTH)) {
-            this.gantt_start = date_utils.start_of(this.gantt_start, 'month');//date_utils.add(this.gantt_start, -1, 'month');
-            this.gantt_end = date_utils.add(this.gantt_end, 1, 'month');
+            this.gantt_start = date_utils.start_of(this.gantt_start, 'year');
+            this.gantt_end = date_utils.add(this.gantt_end, 1, 'year');
         } else if (this.view_is(VIEW_MODE.YEAR)) {
-            this.gantt_start = date_utils.add(this.gantt_start, -2, 'year');
-            this.gantt_end = date_utils.add(this.gantt_end, 2, 'year');
+            this.gantt_start = date_utils.start_of(this.gantt_start, 'year');
+            this.gantt_end = date_utils.add(this.gantt_end, 1, 'year');
         } else {
             this.gantt_start = date_utils.add(this.gantt_start, -1, 'month');
             this.gantt_end = date_utils.add(this.gantt_end, 1, 'month');
@@ -310,7 +310,7 @@ export default class Gantt {
             this.options.header_height +
             this.options.padding +
             (this.options.bar_height + this.options.padding) *
-                this.stepTypeBars.length;
+            this.stepTypeBars.length;
 
         createSVG('rect', {
             x: 0,
@@ -427,7 +427,7 @@ export default class Gantt {
             const width = this.options.column_width;
             const height =
                 (this.options.bar_height + this.options.padding) *
-                    this.stepTypeBars.length +
+                this.stepTypeBars.length +
                 this.options.header_height +
                 this.options.padding / 2;
 
@@ -513,8 +513,8 @@ export default class Gantt {
             'Half Day_upper':
                 date.getDate() !== last_date.getDate()
                     ? date.getMonth() !== last_date.getMonth()
-                      ? date_utils.format(date, 'D MMM', this.options.language)
-                      : date_utils.format(date, 'D', this.options.language)
+                        ? date_utils.format(date, 'D MMM', this.options.language)
+                        : date_utils.format(date, 'D', this.options.language)
                     : '',
             Day_upper:
                 date.getMonth() !== last_date.getMonth()
@@ -529,16 +529,21 @@ export default class Gantt {
                     ? date_utils.format(date, 'YYYY', this.options.language)
                     : '',
             Year_upper:
-                date.getFullYear() !== last_date.getFullYear()
+                date.getFullYear() !== last_date.getFullYear() && this.options.view_mode !== "Year"
                     ? date_utils.format(date, 'YYYY', this.options.language)
                     : ''
         };
 
         const base_pos = {
-            x: i * this.options.column_width,
             lower_y: this.options.header_height,
             upper_y: this.options.header_height - 25
         };
+
+        if (this.view_is(VIEW_MODE.MONTH)) {
+            base_pos.x = date_utils.diff(date, this.gantt_start, 'day') * this.options.column_width / 30
+        } else {
+            base_pos.x = i * this.options.column_width
+        }
 
         const x_pos = {
             'Quarter Day_lower': this.options.column_width * 4 / 2,
@@ -549,7 +554,7 @@ export default class Gantt {
             Day_upper: this.options.column_width * 30 / 2,
             Week_lower: 0,
             Week_upper: this.options.column_width * 4 / 2,
-            Month_lower: this.options.column_width / 2,
+            Month_lower: (date_utils.get_days_in_month(date) * this.options.column_width / 30) / 2,
             Month_upper: this.options.column_width * 12 / 2,
             Year_lower: this.options.column_width / 2,
             Year_upper: this.options.column_width * 30 / 2
@@ -595,8 +600,8 @@ export default class Gantt {
 
         const scroll_pos =
             hours_before_first_start /
-                this.options.step *
-                this.options.column_width -
+            this.options.step *
+            this.options.column_width -
             this.options.column_width;
 
         parent_element.scrollLeft = scroll_pos;
@@ -734,7 +739,7 @@ export default class Gantt {
      * @returns Date
      * @memberof Gantt
      */
-     get_newest_ending_date() {
+    get_newest_ending_date() {
         return this.tasks
             .map(task => task._end)
             .reduce(
@@ -752,6 +757,8 @@ export default class Gantt {
     clear() {
         this.$svg.innerHTML = '';
         this.stepTypeBars = [];
+        this.hide_popup();
+        this.popup_wrapper.style.left = 0;
     }
 }
 

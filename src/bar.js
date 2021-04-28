@@ -170,10 +170,10 @@ export default class Bar {
     show_popup() {
         if (this.gantt.bar_being_dragged) return;
 
-        const start_date = date_utils.format(this.task._start, 'MMM D', this.gantt.options.language);
+        const start_date = date_utils.format(this.task._start, 'MMM D, YYYY', this.gantt.options.language);
         const end_date = date_utils.format(
             date_utils.add(this.task._end, -1, 'second'),
-            'MMM D',
+            'MMM D, YYYY',
             this.gantt.options.language
         );
         const subtitle = start_date + ' - ' + end_date;
@@ -278,11 +278,11 @@ export default class Bar {
         const diff = date_utils.diff(task_start, gantt_start, 'hour');
         let x = diff / step * column_width;
 
-        // Not sure why this is here
-        // if (this.gantt.view_is('Month')) {
-        //     const diff = date_utils.diff(task_start, gantt_start, 'day');
-        //     x = diff * column_width / 30;
-        // }
+        // For months, adjust for different days in a month
+        if (this.gantt.view_is('Month')) {
+            const diff = date_utils.diff(task_start, gantt_start, 'day');
+            x = diff * column_width / 30;
+        }
         return x;
     }
 
@@ -293,6 +293,7 @@ export default class Bar {
             ));
 
         if (existingBarsForStepType.length > 0) {
+            existingBarsForStepType[0].bars.push(this);
             return existingBarsForStepType[0].bars[0].y;
         } else {
             this.gantt.stepTypeBars.push({ id: this.task.data.StepTypeId, bars: [this] });

@@ -9,6 +9,7 @@ const dev = {
         file: 'dist/frappe-gantt.js',
         format: 'iife'
     },
+    sourcemap: true,
     plugins: [
         sass({
             output: 'dist/frappe-gantt.css'

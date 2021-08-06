@@ -275,13 +275,39 @@ export default class Gantt {
     }
 
     render() {
-        this.clear();
-        this.setup_layers();
-        this.make_bars();
-        this.make_grid();
-        this.make_dates();
-        this.set_width();
-        this.set_scroll_position();
+        this.render_labels();
+        
+        requestAnimationFrame(() => {
+            this.setup_label_widths();
+            this.clear();
+
+            this.setup_layers();
+            this.make_bars();
+            this.make_grid();
+            this.make_dates();
+            this.set_width();
+            this.set_scroll_position();
+        });
+
+    }
+
+    render_labels() {
+        for (let i=0;i<this.tasks.length;i++) {
+            this.tasks[i].label_primer = createSVG('text', {
+                x: 0,
+                y: this.options.bar_height*(i+1),
+                innerHTML: this.tasks[i].name,
+                class: 'bar-label',
+                append_to: this.$svg
+            });
+            this.tasks[i].labelWidth = 0;
+        }
+    }
+
+    setup_label_widths() {
+        for (let task of this.tasks) {
+            task.labelWidth = task.label_primer.getBBox().width;
+        }
     }
 
     setup_layers() {

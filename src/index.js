@@ -12,7 +12,8 @@ const VIEW_MODE = {
     DAY: 'Day',
     WEEK: 'Week',
     MONTH: 'Month',
-    YEAR: 'Year'
+    YEAR: 'Year',
+    DECADE: 'Decade'
 };
 
 export default class Gantt {
@@ -206,6 +207,9 @@ export default class Gantt {
         } else if (view_mode === VIEW_MODE.YEAR) {
             this.options.step = 24 * 365;
             this.options.column_width = 120;
+        } else if (view_mode === VIEW_MODE.DECADE) {
+            this.options.step = 24 * 365 * 10;
+            this.options.column_width = 120;
         }
     }
 
@@ -240,6 +244,11 @@ export default class Gantt {
         } else if (this.view_is(VIEW_MODE.YEAR)) {
             this.gantt_start = date_utils.start_of(this.gantt_start, 'year');
             this.gantt_end = date_utils.add(this.gantt_end, 1, 'year');
+        } else if (this.view_is(VIEW_MODE.DECADE)) {
+            this.gantt_start = date_utils.start_of(this.gantt_start, 'year');
+            let remainder = this.gantt_start.getFullYear() % 10;
+            if (remainder > 0) this.gantt_start.setYear(this.gantt_start.getFullYear() - remainder);
+            this.gantt_end = date_utils.add(this.gantt_end, 1, 'year');
         } else {
             this.gantt_start = date_utils.add(this.gantt_start, -1, 'month');
             this.gantt_end = date_utils.add(this.gantt_end, 1, 'month');
@@ -256,6 +265,8 @@ export default class Gantt {
             } else {
                 if (this.view_is(VIEW_MODE.YEAR)) {
                     cur_date = date_utils.add(cur_date, 1, 'year');
+                } else if (this.view_is(VIEW_MODE.DECADE)) {
+                    cur_date = date_utils.add(cur_date, 10, 'year');
                 } else if (this.view_is(VIEW_MODE.MONTH)) {
                     cur_date = date_utils.add(cur_date, 1, 'month');
                 } else {
@@ -307,6 +318,7 @@ export default class Gantt {
     setup_label_widths() {
         for (let task of this.tasks) {
             task.labelWidth = task.label_primer.getBBox().width;
+            console.log(task.labelWidth);
         }
     }
 
@@ -532,6 +544,7 @@ export default class Gantt {
                     : date_utils.format(date, 'D', this.options.language),
             Month_lower: date_utils.format(date, 'MMMM', this.options.language),
             Year_lower: date_utils.format(date, 'YYYY', this.options.language),
+            Decade_lower: date_utils.format(date, 'YYYYs', this.options.language),
             'Quarter Day_upper':
                 date.getDate() !== last_date.getDate()
                     ? date_utils.format(date, 'D MMM', this.options.language)
@@ -555,7 +568,7 @@ export default class Gantt {
                     ? date_utils.format(date, 'YYYY', this.options.language)
                     : '',
             Year_upper:
-                date.getFullYear() !== last_date.getFullYear() && this.options.view_mode !== "Year"
+                date.getFullYear() !== last_date.getFullYear() && this.options.view_mode !== "Year" && this.options.view_mode !== "Decade"
                     ? date_utils.format(date, 'YYYY', this.options.language)
                     : ''
         };
@@ -583,7 +596,9 @@ export default class Gantt {
             Month_lower: (date_utils.get_days_in_month(date) * this.options.column_width / 30) / 2,
             Month_upper: this.options.column_width * 12 / 2,
             Year_lower: this.options.column_width / 2,
-            Year_upper: this.options.column_width * 30 / 2
+            Year_upper: this.options.column_width * 30 / 2,
+            Decade_lower: this.options.column_width / 2,
+            Decade_upper: this.options.column_width * 30 / 2
         };
 
         return {

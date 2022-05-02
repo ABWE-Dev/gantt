@@ -513,6 +513,7 @@ class Bar {
         };
         SVGElement.prototype.getWidth = function () {
             if (this.nodeName == 'circle') return this.getAttribute('r')*2;
+            if (this.nodeName == 'text') return 10;
             return +this.getAttribute('width');
         };
         SVGElement.prototype.getHeight = function () {
@@ -533,14 +534,25 @@ class Bar {
     draw_bar() {
         // Single point where the start date = the end date
         if (this.task.start == this.task.end) {
-            this.$bar = createSVG('circle', {
-                cx: this.x,
-                cy: this.y + (this.gantt.options.bar_height / 2),
-                r: this.gantt.options.bar_height / 4,
-                class: 'bar',
-                style: 'fill:' + this.task.Color || '',
-                append_to: this.bar_group
-            });
+            if (this.task.data.StepType.Guid == '2b683892-c473-4d19-b847-2410881afc86') {
+                this.$bar = createSVG('text', {
+                    x: this.x,
+                    y: this.y + this.height / 2,
+                    innerHTML: '&#xf091;',
+                    class: 'fa left-for-field',
+                    style: 'font-size: 15px; fill:' + this.task.Color || '',
+                    append_to: this.bar_group
+                });
+            } else {
+                this.$bar = createSVG('circle', {
+                    cx: this.x,
+                    cy: this.y + (this.gantt.options.bar_height / 2),
+                    r: this.gantt.options.bar_height / 4,
+                    class: 'bar',
+                    style: 'fill:' + this.task.Color || '',
+                    append_to: this.bar_group
+                });
+            }
         } else {
             // Date range
             this.$bar = createSVG('rect', {
@@ -559,7 +571,7 @@ class Bar {
         }
 
         // For assignments, draw left for field
-        if (this.task.data.AttributeValues.LeftforField && this.task.data.AttributeValues.LeftforField.Value != null) {
+        if (this.task.data.AttributeValues.LeftforField && this.task.data.AttributeValues.LeftforField.Value && this.task.data.AttributeValues.LeftforField.Value != null) {
             createSVG('text', {
                 x: this.compute_any_x(new Date(this.task.data.AttributeValues.LeftforField.Value)),
                 y: this.y + this.height / 2,
@@ -593,6 +605,22 @@ class Bar {
         this.setup_click_event();
     }
 
+    getStartX() {
+        if (this.task.start == this.task.end) {
+            return this.x - (this.gantt.options.bar_height / 4);
+        } else {
+            return this.x;
+        }
+    }
+
+    getEndX() {
+        if (this.task.start == this.task.end) {
+            return this.x + (this.gantt.options.bar_height / 4) + 5 + this.labelWidth; // x + radius + space + width + labelWidth
+        } else {
+            return this.x + this.width + this.labelWidth;
+        }
+    }
+
     setup_click_event() {
         $.on(this.group, 'focus ' + this.gantt.options.popup_trigger, e => {
             if (this.action_completed) {
@@ -618,7 +646,7 @@ class Bar {
     show_popup() {
         if (this.gantt.bar_being_dragged) return;
 
-        const start_date = date_utils.format(this.task._start, 'MMM D, YYYY', this.gantt.options.language);
+        const start_date = date_utils.format (this.task._start, 'MMM D, YYYY', this.gantt.options.language);
         const end_date = date_utils.format(
             date_utils.add(this.task._end, -1, 'second'),
             'MMM D, YYYY',
@@ -632,29 +660,6 @@ class Bar {
             subtitle: subtitle,
             task: this.task,
         });
-    }
-
-    date_changed() {
-        let changed = false;
-        const { new_start_date, new_end_date } = this.compute_start_end_date();
-
-        if (Number(this.task._start) !== Number(new_start_date)) {
-            changed = true;
-            this.task._start = new_start_date;
-        }
-
-        if (Number(this.task._end) !== Number(new_end_date)) {
-            changed = true;
-            this.task._end = new_end_date;
-        }
-
-        if (!changed) return;
-
-        this.gantt.trigger_event('date_change', [
-            this.task,
-            new_start_date,
-            date_utils.add(new_end_date, -1, 'second')
-        ]);
     }
 
     compute_start_end_date() {
@@ -692,6 +697,7 @@ class Bar {
             const diff = date_utils.diff(task_start, gantt_start, 'day');
             x = diff * column_width / 30;
         }
+
         return x;
     }
 
@@ -701,7 +707,8 @@ class Bar {
         let existingBarsForStepType = this.gantt.stepTypeBars.filter(stepTypeBars => stepTypeBars.id == this.task.data.StepTypeId
             && stepTypeBars.bars.every(bar =>
                 // Be sure they don't overlap
-                bar.x + bar.width + bar.labelWidth <= this.x || bar.x >= this.x + this.width + this.labelWidth
+                {console.log(bar.getStartX(), bar.getEndX(), this.getStartX(), this.getEndX());
+                return bar.getEndX() <= this.getStartX() || bar.getStartX() >= this.getEndX()}
             ));
 
         if (existingBarsForStepType.length > 0) {
@@ -824,7 +831,8 @@ const VIEW_MODE = {
     DAY: 'Day',
     WEEK: 'Week',
     MONTH: 'Month',
-    YEAR: 'Year'
+    YEAR: 'Year',
+    DECADE: 'Decade'
 };
 
 class Gantt {
@@ -1018,6 +1026,9 @@ class Gantt {
         } else if (view_mode === VIEW_MODE.YEAR) {
             this.options.step = 24 * 365;
             this.options.column_width = 120;
+        } else if (view_mode === VIEW_MODE.DECADE) {
+            this.options.step = 24 * 365 * 10;
+            this.options.column_width = 120;
         }
     }
 
@@ -1052,6 +1063,11 @@ class Gantt {
         } else if (this.view_is(VIEW_MODE.YEAR)) {
             this.gantt_start = date_utils.start_of(this.gantt_start, 'year');
             this.gantt_end = date_utils.add(this.gantt_end, 1, 'year');
+        } else if (this.view_is(VIEW_MODE.DECADE)) {
+            this.gantt_start = date_utils.start_of(this.gantt_start, 'year');
+            let remainder = this.gantt_start.getFullYear() % 10;
+            if (remainder > 0) this.gantt_start.setYear(this.gantt_start.getFullYear() - remainder);
+            this.gantt_end = date_utils.add(this.gantt_end, 1, 'year');
         } else {
             this.gantt_start = date_utils.add(this.gantt_start, -1, 'month');
             this.gantt_end = date_utils.add(this.gantt_end, 1, 'month');
@@ -1068,6 +1084,8 @@ class Gantt {
             } else {
                 if (this.view_is(VIEW_MODE.YEAR)) {
                     cur_date = date_utils.add(cur_date, 1, 'year');
+                } else if (this.view_is(VIEW_MODE.DECADE)) {
+                    cur_date = date_utils.add(cur_date, 10, 'year');
                 } else if (this.view_is(VIEW_MODE.MONTH)) {
                     cur_date = date_utils.add(cur_date, 1, 'month');
                 } else {
@@ -1119,6 +1137,7 @@ class Gantt {
     setup_label_widths() {
         for (let task of this.tasks) {
             task.labelWidth = task.label_primer.getBBox().width;
+            console.log(task.labelWidth);
         }
     }
 
@@ -1344,6 +1363,7 @@ class Gantt {
                     : date_utils.format(date, 'D', this.options.language),
             Month_lower: date_utils.format(date, 'MMMM', this.options.language),
             Year_lower: date_utils.format(date, 'YYYY', this.options.language),
+            Decade_lower: date_utils.format(date, 'YYYYs', this.options.language),
             'Quarter Day_upper':
                 date.getDate() !== last_date.getDate()
                     ? date_utils.format(date, 'D MMM', this.options.language)
@@ -1367,7 +1387,7 @@ class Gantt {
                     ? date_utils.format(date, 'YYYY', this.options.language)
                     : '',
             Year_upper:
-                date.getFullYear() !== last_date.getFullYear() && this.options.view_mode !== "Year"
+                date.getFullYear() !== last_date.getFullYear() && this.options.view_mode !== "Year" && this.options.view_mode !== "Decade"
                     ? date_utils.format(date, 'YYYY', this.options.language)
                     : ''
         };
@@ -1395,7 +1415,9 @@ class Gantt {
             Month_lower: (date_utils.get_days_in_month(date) * this.options.column_width / 30) / 2,
             Month_upper: this.options.column_width * 12 / 2,
             Year_lower: this.options.column_width / 2,
-            Year_upper: this.options.column_width * 30 / 2
+            Year_upper: this.options.column_width * 30 / 2,
+            Decade_lower: this.options.column_width / 2,
+            Decade_upper: this.options.column_width * 30 / 2
         };
 
         return {
